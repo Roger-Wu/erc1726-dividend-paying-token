@@ -40,17 +40,26 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
 
   constructor() public {}
 
-  /// @dev Fallback function to allow anyone to deposit dividends.
+  /// @dev Fallback function to allow anyone to pay and distribute dividends.
   function() public payable {
     payAndDistributeDividends();
   }
 
-  /// @dev Allow anyone to deposit ether to this contract.
-  /// The deposited ether is distributed to token holders.
+  /// @dev Allow anyone to pay ether to this contract.
+  /// The paid ether is distributed to token holders.
   function payAndDistributeDividends() public payable {
     require(msg.value > 0);
     require(totalSupply_ > 0);
 
+    /// @dev There is a small amount of ether not distributed,
+    ///   the magnified amount of which is
+    ///   `msg.value * magnitude - (msg.value * magnitude / totalSupply_)
+    ///    * totalSupply_`.
+    /// With a well-chosen `magnitude`, the amount of undistributed ether
+    ///   (de-magnified) can be less than 1 wei.
+    /// We can keep track of the undistributed ether and add them back
+    ///   in the next distribution, but doing this costs more than saved,
+    ///   so we don't do that.
     magnifiedDividendsPerShare = magnifiedDividendsPerShare.add(
       (msg.value).mul(magnitude) / totalSupply_
     );
