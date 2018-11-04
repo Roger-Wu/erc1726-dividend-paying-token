@@ -47,19 +47,19 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
 
   /// @dev Allow anyone to pay ether to this contract.
   /// The paid ether is distributed to token holders.
+  /// In each distribution, there is a small amount of ether not distributed,
+  ///   the magnified amount of which is
+  ///   `msg.value * magnitude - (msg.value * magnitude / totalSupply_)
+  ///    * totalSupply_`.
+  /// With a well-chosen `magnitude`, the amount of undistributed ether
+  ///   (de-magnified) can be less than 1 wei.
+  /// We can keep track of the undistributed ether and add them back
+  ///   in the next distribution, but doing this costs more than saved,
+  ///   so we don't do that.
   function payAndDistributeDividends() public payable {
     require(msg.value > 0);
     require(totalSupply_ > 0);
 
-    /// @dev There is a small amount of ether not distributed,
-    ///   the magnified amount of which is
-    ///   `msg.value * magnitude - (msg.value * magnitude / totalSupply_)
-    ///    * totalSupply_`.
-    /// With a well-chosen `magnitude`, the amount of undistributed ether
-    ///   (de-magnified) can be less than 1 wei.
-    /// We can keep track of the undistributed ether and add them back
-    ///   in the next distribution, but doing this costs more than saved,
-    ///   so we don't do that.
     magnifiedDividendsPerShare = magnifiedDividendsPerShare.add(
       (msg.value).mul(magnitude) / totalSupply_
     );
@@ -79,6 +79,7 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
 
   /// @dev View the total amount of dividends of a token holder.
   /// Including withdrawn and not yet withdrawn dividends.
+  /// = (magnifiedDividendsPerShare * balances[_user] - magnifiedDividendsCorrections[_user]) / magnitude
   /// @param _user The address of a token holder.
   /// @return The total amount of dividends in wei.
   function accumulativeDividendOf(address _user)
@@ -86,7 +87,6 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     view
     returns(uint256)
   {
-    // (magnifiedDividendsPerShare * balances[_user] - magnifiedDividendsCorrections[_user]) / magnitude
     return magnifiedDividendsPerShare.mul(balances[_user]).toInt256Safe()
       .add(magnifiedDividendsCorrections[_user]).toUint256Safe() /
       magnitude;
@@ -111,6 +111,7 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   }
 
   /// @dev Function to mint tokens
+  /// Update magnifiedDividendsCorrections to keep dividends unchanged.
   /// @param _to The address that will receive the minted tokens.
   /// @param _amount The amount of tokens to mint.
   /// @return A boolean that indicates if the operation was successful.
@@ -123,7 +124,6 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     canMint
     returns (bool)
   {
-    /// @dev Update magnifiedDividendsCorrections to keep dividends unchanged.
     magnifiedDividendsCorrections[_to] = magnifiedDividendsCorrections[_to]
       .sub( (magnifiedDividendsPerShare.mul(_amount)).toInt256Safe() );
     return super.mint(_to, _amount);
