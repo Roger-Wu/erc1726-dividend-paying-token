@@ -22,10 +22,6 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
 
   uint256 internal magnifiedDividendsPerShare;
 
-  /// @dev We should not store the total amount of received ether on-chain
-  ///   because we can do this by tracking the emitted events.
-  uint256 internal totalDividends_ = 0;
-
   /// @dev
   /// Before minting or transferring tokens, the dividends of a user
   ///   can be calculated with this formula (pseudo code):
@@ -55,7 +51,6 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     require(msg.value > 0);
     require(totalSupply_ > 0);
 
-    totalDividends_ = totalDividends_.add(msg.value);
     magnifiedDividendsPerShare = magnifiedDividendsPerShare.add(
       (msg.value).mul(magnitude) / totalSupply_
     );
@@ -104,10 +99,6 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   /// @return The amount of withdrawn dividends in wei.
   function withdrawnDividendsOf(address _user) public view returns(uint256) {
     return withdrawnDividends[_user];
-  }
-
-  function totalDividends() public view returns(uint256) {
-    return totalDividends_;
   }
 
   /// @dev Function to mint tokens

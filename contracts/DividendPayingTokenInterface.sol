@@ -25,7 +25,7 @@ interface DividendPayingTokenInterface {
     external view returns(uint256);
 
   // view the total amount of dividends that have been paid to this contract
-  function totalDividends() external view returns(uint256);
+  // function totalDividends() external view returns(uint256);
 
   event DividendsDistributed(
     address indexed from,
