@@ -1,21 +1,38 @@
 {
-  "name": "ProfitableToken",
+  "name": "DividendPayingToken",
   "version": "1.0.0",
-  "description": "Profitable ERC20 Token Contract",
+  "description": "Dividend Paying Token Contract",
   "main": "truffle-config.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
+    "build": "scripts/build.sh",
+    "compile": "truffle compile",
     "console": "truffle console",
     "coverage": "scripts/coverage.sh",
-    "test": "scripts/test.sh"
+    "lint": "npm run lint:js && npm run lint:sol",
+    "lint:fix": "npm run lint:js:fix",
+    "lint:js": "eslint .",
+    "lint:js:fix": "eslint . --fix",
+    "lint:sol": "solhint --max-warnings 0 \"contracts/**/*.sol\"",
+    "prepack": "npm run build",
+    "version": "scripts/version.js",
+    "test": "npm run compile && scripts/test.sh"
   },
-  "keywords": [],
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "smart",
+    "contracts",
+    "dividend",
+    "token",
+    "erc20"
+  ],
   "author": "Roger-Wu",
   "license": "ISC",
   "dependencies": {
-    "openzeppelin-solidity": "1.12.0"
+    "openzeppelin-solidity": "2.1.2"
   },
   "devDependencies": {
     "chai": "^4.1.2",
@@ -31,10 +48,9 @@
     "ethereumjs-util": "^5.2.0",
     "ethjs-abi": "^0.2.1",
     "ganache-cli": "6.1.0",
-    "solidity-coverage": "^0.5.4",
+    "openzeppelin-test-helpers": "^0.1.2",
+    "solidity-coverage": "https://github.com:rotcivegaf/solidity-coverage.git#5875f5b7bc74d447f3312c9c0e9fc7814b482477",
     "solium": "^1.1.8",
-    "truffle": "^4.1.13",
-    "truffle-hdwallet-provider": "0.0.5",
-    "web3-utils": "^1.0.0-beta.34"
+    "truffle": "^5.0.0"
   }
 }

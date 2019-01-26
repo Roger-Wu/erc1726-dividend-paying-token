@@ -1,6 +1,6 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
-import "openzeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
 import "./DividendPayingTokenInterface.sol";
 import "./math/SafeMathUint.sol";
 import "./math/SafeMathInt.sol";
@@ -10,7 +10,7 @@ import "./math/SafeMathInt.sol";
 /// @dev A mintable ERC20 token that allows anyone to pay and distribute dividends
 /// to token holders and allows token holders to withdraw their dividend.
 /// Based on the source code of PoWH3D: https://etherscan.io/address/0xB3775fB83F7D12A36E0475aBdD1FCA35c091efBe#code
-contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
+contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface {
   using SafeMath for uint256;
   using SafeMathUint for uint256;
   using SafeMathInt for int256;
@@ -37,10 +37,8 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   mapping(address => int256) internal magnifiedDividendCorrections;
   mapping(address => uint256) internal withdrawnDividends;
 
-  constructor() public {}
-
   /// @dev Fallback function to allow anyone to pay and distribute dividends.
-  function() public payable {
+  function() external payable {
     payAndDistributeDividends();
   }
 
@@ -48,8 +46,8 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   /// The paid ether is distributed to token holders.
   /// In each distribution, there is a small amount of ether not distributed,
   ///   the magnified amount of which is
-  ///   `msg.value * magnitude - (msg.value * magnitude / totalSupply_)
-  ///    * totalSupply_`.
+  ///   `msg.value * magnitude - (msg.value * magnitude / totalSupply())
+  ///    * totalSupply()`.
   /// With a well-chosen `magnitude`, the amount of undistributed ether
   ///   (de-magnified) can be less than 1 wei.
   /// We can keep track of the undistributed ether and add them back
@@ -57,28 +55,27 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   ///   so we don't do that.
   function payAndDistributeDividends() public payable {
     require(msg.value > 0);
-    require(totalSupply_ > 0);
+    require(totalSupply() > 0);
 
     magnifiedDividendPerShare = magnifiedDividendPerShare.add(
-      (msg.value).mul(magnitude) / totalSupply_
+      (msg.value).mul(magnitude) / totalSupply()
     );
     emit DividendsDistributed(msg.sender, msg.value);
   }
 
   /// @dev Withdraw the dividends of a token holder.
   function withdrawDividend() public {
-    address _user = msg.sender;
-    uint256 _withdrawableDividend = withdrawableDividendOf(_user);
+    uint256 _withdrawableDividend = withdrawableDividendOf(msg.sender);
     if (_withdrawableDividend > 0) {
-      withdrawnDividends[_user] = withdrawnDividends[_user].add(_withdrawableDividend);
-      emit DividendsWithdrawn(_user, _withdrawableDividend);
-      _user.transfer(_withdrawableDividend);
+      withdrawnDividends[msg.sender] = withdrawnDividends[msg.sender].add(_withdrawableDividend);
+      emit DividendsWithdrawn(msg.sender, _withdrawableDividend);
+      (msg.sender).transfer(_withdrawableDividend);
     }
   }
 
   /// @dev View the accumulative amount of dividend of a token holder.
   /// Including withdrawn and not yet withdrawn dividend.
-  /// = (magnifiedDividendPerShare * balances[_user] - magnifiedDividendCorrections[_user]) / magnitude
+  /// = (magnifiedDividendPerShare * balanceOf(_user) - magnifiedDividendCorrections[_user]) / magnitude
   /// @param _user The address of a token holder.
   /// @return The accumulative amount of dividend of a token holder in wei.
   function accumulativeDividendOf(address _user)
@@ -86,7 +83,7 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     view
     returns(uint256)
   {
-    return magnifiedDividendPerShare.mul(balances[_user]).toInt256Safe()
+    return magnifiedDividendPerShare.mul(balanceOf(_user)).toInt256Safe()
       .add(magnifiedDividendCorrections[_user]).toUint256Safe() /
       magnitude;
   }
@@ -119,8 +116,7 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     uint256 _amount
   )
     public
-    hasMintPermission
-    canMint
+    onlyMinter
     returns (bool)
   {
     magnifiedDividendCorrections[_to] = magnifiedDividendCorrections[_to]
@@ -132,9 +128,6 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   /// @param _to The address to transfer to.
   /// @param _value The amount to be transferred.
   function transfer(address _to, uint256 _value) public returns (bool) {
-    require(_value <= balances[msg.sender]);
-    require(_to != address(0));
-
     _transfer(msg.sender, _to, _value);
     return true;
   }
@@ -151,13 +144,8 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     public
     returns (bool)
   {
-    require(_value <= balances[_from]);
-    require(_value <= allowed[_from][msg.sender]);
-    require(_to != address(0));
-
-    allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
-    _transfer(_from, _to, _value);
-    return true;
+    // the _transfer(from, to, value) of this contract will be called.
+    return super.transferFrom(_from, _to, _value);
   }
 
   /// @dev Transfer tokens from one address to another.
@@ -166,13 +154,10 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   /// @param _to address The address which you want to transfer to
   /// @param _value uint256 the amount of tokens to be transferred
   function _transfer(address _from, address _to, uint256 _value) internal {
-    balances[_from] = balances[_from].sub(_value);
-    balances[_to] = balances[_to].add(_value);
-
     int256 _magCorrection = magnifiedDividendPerShare.mul(_value).toInt256Safe();
     magnifiedDividendCorrections[_from] = magnifiedDividendCorrections[_from].add(_magCorrection);
     magnifiedDividendCorrections[_to] = magnifiedDividendCorrections[_to].sub(_magCorrection);
 
-    emit Transfer(_from, _to, _value);
+    super._transfer(_from, _to, _value);
   }
 }

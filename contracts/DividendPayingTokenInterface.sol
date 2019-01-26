@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.0;
 
 
 /// @title Dividend Paying Token Interface
@@ -13,16 +13,14 @@ interface DividendPayingTokenInterface {
   function withdrawDividend() external;
 
   // view the amount of dividends that can be withdrawn by a token holder
-  function withdrawableDividendOf(address _user)
-    external view returns(uint256);
+  function withdrawableDividendOf(address _user) external view returns(uint256);
 
   // view the amount of dividends that has been withdrawn by a token holder
   function withdrawnDividendOf(address _user) external view returns(uint256);
 
   // view the total amount of dividends that a token holder has earned
   // = withdrawableDividendOf(_user) + withdrawnDividendOf(_user)
-  function accumulativeDividendOf(address _user)
-    external view returns(uint256);
+  function accumulativeDividendOf(address _user) external view returns(uint256);
 
   // view the total amount of dividends that have been paid to this contract
   // function totalDividends() external view returns(uint256);
