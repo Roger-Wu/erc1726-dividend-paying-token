@@ -8,8 +8,7 @@ import "./math/SafeMathInt.sol";
 /// @title Dividend Paying Token
 /// @author Roger Wu (https://github.com/roger-wu)
 /// @dev A mintable ERC20 token that allows anyone to pay and distribute dividends
-/// to token holders
-/// and allows token holders to withdraw their deserved dividends.
+/// to token holders and allows token holders to withdraw their dividend.
 /// Based on the source code of PoWH3D: https://etherscan.io/address/0xB3775fB83F7D12A36E0475aBdD1FCA35c091efBe#code
 contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   using SafeMath for uint256;
@@ -20,22 +19,22 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   ///   when the amount of received ether is small.
   uint256 constant internal magnitude = 2**64;
 
-  uint256 internal magnifiedDividendsPerShare;
+  uint256 internal magnifiedDividendPerShare;
 
   /// @dev
-  /// Before minting or transferring tokens, the dividends of a user
-  ///   can be calculated with this formula (pseudo code):
-  ///   `dividendsOf(_user) = dividendsPerShare * balanceOf(_user);`.
-  /// After minting or transferring tokens, the dividends of `_user`
+  /// Before minting or transferring tokens, the dividend of a _user
+  ///   can be calculated with this formula:
+  ///   `dividendOf(_user) = dps * balanceOf(_user);`.
+  ///   (dps stands for dividendPerShare.)
+  /// After minting or transferring tokens to a _user, the dividend of him
   ///   should not be changed, but since `balanceOf(_user)` is changed,
-  ///   `dividendsPerShare * balanceOf(_user)` is changed too.
-  /// To keep the calculated `dividendsOf(_user)` unchanged, we add
-  ///   a correction term to the formula:
-  ///   `dividendsOf(_user) = dividendsPerShare * balanceOf(_user)
-  ///    + dividendsCorrectionOf(_user);`.
-  ///   `dividendsCorrectionOf(_user) = -1 * dividendsPerShare
-  ///    * increasedBalanceOf(_user);`
-  mapping(address => int256) internal magnifiedDividendsCorrections;
+  ///   `dps * balanceOf(_user)` no longer == dividendOf(_user).
+  /// To keep the calculated `dividendOf(_user)` unchanged, we add a correction term:
+  ///   `dividendOf(_user) = dps * balanceOf(_user) + dividendCorrectionOf(_user);`.
+  ///   where
+  ///   `dividendCorrectionOf(_user) = -1 * dps * increasedBalanceOf(_user);`
+  ///   so now even balanceOf(_user) is changed, dividendOf(_user) remains the same.
+  mapping(address => int256) internal magnifiedDividendCorrections;
   mapping(address => uint256) internal withdrawnDividends;
 
   constructor() public {}
@@ -60,42 +59,42 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     require(msg.value > 0);
     require(totalSupply_ > 0);
 
-    magnifiedDividendsPerShare = magnifiedDividendsPerShare.add(
+    magnifiedDividendPerShare = magnifiedDividendPerShare.add(
       (msg.value).mul(magnitude) / totalSupply_
     );
     emit DividendsDistributed(msg.sender, msg.value);
   }
 
   /// @dev Withdraw the dividends of a token holder.
-  function withdrawDividends() public {
+  function withdrawDividend() public {
     address _user = msg.sender;
-    uint256 _withdrawableDividends = withdrawableDividendsOf(_user);
-    if (_withdrawableDividends > 0) {
-      withdrawnDividends[_user] = withdrawnDividends[_user].add(_withdrawableDividends);
-      emit DividendsWithdrawn(_user, _withdrawableDividends);
-      _user.transfer(_withdrawableDividends);
+    uint256 _withdrawableDividend = withdrawableDividendOf(_user);
+    if (_withdrawableDividend > 0) {
+      withdrawnDividends[_user] = withdrawnDividends[_user].add(_withdrawableDividend);
+      emit DividendsWithdrawn(_user, _withdrawableDividend);
+      _user.transfer(_withdrawableDividend);
     }
   }
 
-  /// @dev View the total amount of dividends of a token holder.
-  /// Including withdrawn and not yet withdrawn dividends.
-  /// = (magnifiedDividendsPerShare * balances[_user] - magnifiedDividendsCorrections[_user]) / magnitude
+  /// @dev View the accumulative amount of dividend of a token holder.
+  /// Including withdrawn and not yet withdrawn dividend.
+  /// = (magnifiedDividendPerShare * balances[_user] - magnifiedDividendCorrections[_user]) / magnitude
   /// @param _user The address of a token holder.
-  /// @return The total amount of dividends in wei.
+  /// @return The accumulative amount of dividend of a token holder in wei.
   function accumulativeDividendOf(address _user)
     public
     view
     returns(uint256)
   {
-    return magnifiedDividendsPerShare.mul(balances[_user]).toInt256Safe()
-      .add(magnifiedDividendsCorrections[_user]).toUint256Safe() /
+    return magnifiedDividendPerShare.mul(balances[_user]).toInt256Safe()
+      .add(magnifiedDividendCorrections[_user]).toUint256Safe() /
       magnitude;
   }
 
-  /// @dev View the amount of withdrawable dividends of a token holder.
+  /// @dev View the amount of withdrawable dividend of a token holder.
   /// @param _user The address of a token holder.
-  /// @return The amount of withdrawable dividends in wei.
-  function withdrawableDividendsOf(address _user)
+  /// @return The amount of withdrawable dividend of a token holder in wei.
+  function withdrawableDividendOf(address _user)
     public
     view
     returns(uint256)
@@ -105,13 +104,13 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
 
   /// @dev View the amount of withdrawable dividends of a token holder.
   /// @param _user The address of a token holder.
-  /// @return The amount of withdrawn dividends in wei.
-  function withdrawnDividendsOf(address _user) public view returns(uint256) {
+  /// @return The amount of withdrawn dividend of a token holder in wei.
+  function withdrawnDividendOf(address _user) public view returns(uint256) {
     return withdrawnDividends[_user];
   }
 
   /// @dev Function to mint tokens
-  /// Update magnifiedDividendsCorrections to keep dividends unchanged.
+  /// Update magnifiedDividendCorrections to keep dividends unchanged.
   /// @param _to The address that will receive the minted tokens.
   /// @param _amount The amount of tokens to mint.
   /// @return A boolean that indicates if the operation was successful.
@@ -124,8 +123,8 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     canMint
     returns (bool)
   {
-    magnifiedDividendsCorrections[_to] = magnifiedDividendsCorrections[_to]
-      .sub( (magnifiedDividendsPerShare.mul(_amount)).toInt256Safe() );
+    magnifiedDividendCorrections[_to] = magnifiedDividendCorrections[_to]
+      .sub( (magnifiedDividendPerShare.mul(_amount)).toInt256Safe() );
     return super.mint(_to, _amount);
   }
 
@@ -162,7 +161,7 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
   }
 
   /// @dev Transfer tokens from one address to another.
-  /// Update magnifiedDividendsCorrections to keep dividends unchanged.
+  /// Update magnifiedDividendCorrections to keep dividends unchanged.
   /// @param _from address The address which you want to send tokens from
   /// @param _to address The address which you want to transfer to
   /// @param _value uint256 the amount of tokens to be transferred
@@ -170,11 +169,9 @@ contract DividendPayingToken is MintableToken, DividendPayingTokenInterface {
     balances[_from] = balances[_from].sub(_value);
     balances[_to] = balances[_to].add(_value);
 
-    int256 _correction = magnifiedDividendsPerShare.mul(_value).toInt256Safe();
-    magnifiedDividendsCorrections[_from] = magnifiedDividendsCorrections[_from]
-      .add(_correction);
-    magnifiedDividendsCorrections[_to] = magnifiedDividendsCorrections[_to]
-      .sub(_correction);
+    int256 _magCorrection = magnifiedDividendPerShare.mul(_value).toInt256Safe();
+    magnifiedDividendCorrections[_from] = magnifiedDividendCorrections[_from].add(_magCorrection);
+    magnifiedDividendCorrections[_to] = magnifiedDividendCorrections[_to].sub(_magCorrection);
 
     emit Transfer(_from, _to, _value);
   }

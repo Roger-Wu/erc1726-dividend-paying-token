@@ -10,14 +10,14 @@ interface DividendPayingTokenInterface {
   function payAndDistributeDividends() external payable;
 
   // withdraw the dividends of a token holder
-  function withdrawDividends() external;
+  function withdrawDividend() external;
 
   // view the amount of dividends that can be withdrawn by a token holder
-  function withdrawableDividendsOf(address _user)
+  function withdrawableDividendOf(address _user)
     external view returns(uint256);
 
   // view the amount of dividends that has been withdrawn by a token holder
-  function withdrawnDividendsOf(address _user) external view returns(uint256);
+  function withdrawnDividendOf(address _user) external view returns(uint256);
 
   // view the total amount of dividends that a token holder has earned
   // = withdrawableDividendOf(_user) + withdrawnDividendOf(_user)
