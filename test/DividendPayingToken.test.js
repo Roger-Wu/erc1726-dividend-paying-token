@@ -79,10 +79,12 @@ contract('DividendPayingToken', function (accounts) {
 
           (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0.25'));
           (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0.25'));
+          (await this.token.dividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0.25'));
           (await this.token.withdrawnDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0'));
 
           (await this.token.accumulativeDividendOf(tokenHolder2)).should.be.bignumber.equal(ether('0.75'));
           (await this.token.withdrawableDividendOf(tokenHolder2)).should.be.bignumber.equal(ether('0.75'));
+          (await this.token.dividendOf(tokenHolder2)).should.be.bignumber.equal(ether('0.75'));
           (await this.token.withdrawnDividendOf(tokenHolder2)).should.be.bignumber.equal(ether('0'));
         });
       });
@@ -281,7 +283,7 @@ contract('DividendPayingToken', function (accounts) {
 
       const balance1 = await balance.current(tokenHolder1);
       const receipt = await this.token.withdrawDividend({from: tokenHolder1, gasPrice: gasPrice});
-      expectEvent.inLogs(receipt.logs, 'DividendsWithdrawn', {
+      expectEvent.inLogs(receipt.logs, 'DividendWithdrawn', {
           to: tokenHolder1,
           weiAmount: ether('0.25'),
         }

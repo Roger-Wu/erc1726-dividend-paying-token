@@ -2,15 +2,16 @@ pragma solidity ^0.5.0;
 
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
 import "./DividendPayingTokenInterface.sol";
+import "./DividendPayingTokenOptionalInterface.sol";
 import "./math/SafeMathUint.sol";
 import "./math/SafeMathInt.sol";
 
-/// @title Dividend Paying Token
+/// @title Dividend-Paying Token
 /// @author Roger Wu (https://github.com/roger-wu)
 /// @dev A mintable ERC20 token that allows anyone to pay and distribute dividends
 /// to token holders and allows token holders to withdraw their dividend.
-/// Based on the source code of PoWH3D: https://etherscan.io/address/0xB3775fB83F7D12A36E0475aBdD1FCA35c091efBe#code
-contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface {
+/// Reference: the source code of PoWH3D: https://etherscan.io/address/0xB3775fB83F7D12A36E0475aBdD1FCA35c091efBe#code
+contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, DividendPayingTokenOptionalInterface {
   using SafeMath for uint256;
   using SafeMathUint for uint256;
   using SafeMathInt for int256;
@@ -42,17 +43,19 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface {
     payAndDistributeDividends();
   }
 
-  /// @dev Allow anyone to pay ether to this contract.
-  /// The paid ether is distributed to token holders.
-  /// In each distribution, there is a small amount of ether not distributed,
-  ///   the magnified amount of which is
-  ///   `msg.value * magnitude - (msg.value * magnitude / totalSupply())
-  ///    * totalSupply()`.
-  /// With a well-chosen `magnitude`, the amount of undistributed ether
-  ///   (de-magnified) can be less than 1 wei.
-  /// We can keep track of the undistributed ether and add them back
-  ///   in the next distribution, but doing this costs more than saved,
-  ///   so we don't do that.
+  /// @notice Pay and distribute ether to token holders as dividends.
+  /// @dev It reverts if the total supply of tokens is 0.
+  ///   It emits the `DividendsDistributed` event if the amount of received ether is not 0.
+  ///   About undistributed ether:
+  ///     In each distribution, there is a small amount of ether not distributed,
+  ///       the magnified amount of which is
+  ///       `msg.value * magnitude - (msg.value * magnitude / totalSupply()) * totalSupply()`.
+  ///     With a well-chosen `magnitude`, the amount of undistributed ether
+  ///       (de-magnified) in a distribution can be less than 1 wei.
+  ///     We can actually keep track of the undistributed ether in a distribution
+  ///       and try to distribute it in the next distribution,
+  ///       but keeping track of some data on-chain costs much more than
+  ///       the saved ether, so we don't do that.
   function payAndDistributeDividends() public payable {
     require(totalSupply() > 0);
 
@@ -64,101 +67,82 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface {
     }
   }
 
-  /// @dev Withdraw the dividend of msg.sender.
+  /// @notice Withdraw the ether distributed to the sender.
+  /// @dev It emits the `DividendWithdrawn` event if the amount of withdrawn ether is not 0.
   function withdrawDividend() public {
     uint256 _withdrawableDividend = withdrawableDividendOf(msg.sender);
     if (_withdrawableDividend > 0) {
       withdrawnDividends[msg.sender] = withdrawnDividends[msg.sender].add(_withdrawableDividend);
-      emit DividendsWithdrawn(msg.sender, _withdrawableDividend);
+      emit DividendWithdrawn(msg.sender, _withdrawableDividend);
       (msg.sender).transfer(_withdrawableDividend);
     }
   }
 
+  /// @notice View the amount of dividend in wei that a token holder can withdraw.
+  /// @param _owner The address of a token holder.
+  /// @return The amount of dividend in wei that the token holder can withdraw.
+  function dividendOf(address _owner) external view returns(uint256) {
+    return withdrawableDividendOf(_owner);
+  }
+
+  /// @notice View the amount of dividend in wei that a token holder can withdraw.
+  /// @param _owner The address of a token holder.
+  /// @return The amount of dividend in wei that the token holder can withdraw.
+  function withdrawableDividendOf(address _owner) public view returns(uint256) {
+    return accumulativeDividendOf(_owner).sub(withdrawnDividends[_owner]);
+  }
+
+  /// @notice View the amount of dividend in wei that a token holder has withdrawn.
+  /// @param _owner The address of a token holder.
+  /// @return The amount of dividend in wei that the token holder has withdrawn.
+  function withdrawnDividendOf(address _owner) public view returns(uint256) {
+    return withdrawnDividends[_owner];
+  }
+
+  /// @notice View the total amount of dividend in wei that a token holder has earned.
+  /// = withdrawableDividendOf(_owner) + withdrawnDividendOf(_owner)
   /// @dev View the accumulative amount of dividend of a token holder.
   /// Including withdrawn and not yet withdrawn dividend.
-  /// = (magnifiedDividendPerShare * balanceOf(_user) - magnifiedDividendCorrections[_user]) / magnitude
-  /// @param _user The address of a token holder.
-  /// @return The accumulative amount of dividend of a token holder in wei.
-  function accumulativeDividendOf(address _user)
-    public
-    view
-    returns(uint256)
-  {
-    return magnifiedDividendPerShare.mul(balanceOf(_user)).toInt256Safe()
-      .add(magnifiedDividendCorrections[_user]).toUint256Safe() /
-      magnitude;
+  /// = (magnifiedDividendPerShare * balanceOf(_owner) + magnifiedDividendCorrections[_owner]) / magnitude
+  /// @param _owner The address of a token holder.
+  /// @return The accumulative amount of dividend in wei that the token holder has earned.
+  function accumulativeDividendOf(address _owner) public view returns(uint256) {
+    return magnifiedDividendPerShare.mul(balanceOf(_owner)).toInt256Safe()
+      .add(magnifiedDividendCorrections[_owner]).toUint256Safe() / magnitude;
   }
 
-  /// @dev View the amount of withdrawable dividend of a token holder.
-  /// @param _user The address of a token holder.
-  /// @return The amount of withdrawable dividend of a token holder in wei.
-  function withdrawableDividendOf(address _user)
-    public
-    view
-    returns(uint256)
-  {
-    return accumulativeDividendOf(_user).sub(withdrawnDividends[_user]);
-  }
-
-  /// @dev View the amount of withdrawable dividends of a token holder.
-  /// @param _user The address of a token holder.
-  /// @return The amount of withdrawn dividend of a token holder in wei.
-  function withdrawnDividendOf(address _user) public view returns(uint256) {
-    return withdrawnDividends[_user];
-  }
-
-  /// @dev Function to mint tokens
+  /// @dev Internal function that transfer tokens from one address to another.
   /// Update magnifiedDividendCorrections to keep dividends unchanged.
-  /// @param _to The address that will receive the minted tokens.
-  /// @param _amount The amount of tokens to mint.
-  /// @return A boolean that indicates if the operation was successful.
-  function mint(
-    address _to,
-    uint256 _amount
-  )
-    public
-    onlyMinter
-    returns (bool)
-  {
-    magnifiedDividendCorrections[_to] = magnifiedDividendCorrections[_to]
-      .sub( (magnifiedDividendPerShare.mul(_amount)).toInt256Safe() );
-    return super.mint(_to, _amount);
+  /// @param from The address to transfer from.
+  /// @param to The address to transfer to.
+  /// @param value The amount to be transferred.
+  function _transfer(address from, address to, uint256 value) internal {
+    super._transfer(from, to, value);
+
+    int256 _magCorrection = magnifiedDividendPerShare.mul(value).toInt256Safe();
+    magnifiedDividendCorrections[from] = magnifiedDividendCorrections[from].add(_magCorrection);
+    magnifiedDividendCorrections[to] = magnifiedDividendCorrections[to].sub(_magCorrection);
   }
 
-  /// @dev Transfer token for a specified address
-  /// @param _to The address to transfer to.
-  /// @param _value The amount to be transferred.
-  function transfer(address _to, uint256 _value) public returns (bool) {
-    _transfer(msg.sender, _to, _value);
-    return true;
-  }
-
-  /// @dev Transfer tokens from one address to another
-  /// @param _from address The address which you want to send tokens from
-  /// @param _to address The address which you want to transfer to
-  /// @param _value uint256 the amount of tokens to be transferred
-  function transferFrom(
-    address _from,
-    address _to,
-    uint256 _value
-  )
-    public
-    returns (bool)
-  {
-    // the _transfer(from, to, value) of this contract will be called.
-    return super.transferFrom(_from, _to, _value);
-  }
-
-  /// @dev Transfer tokens from one address to another.
+  /// @dev Internal function that mints tokens to an account.
   /// Update magnifiedDividendCorrections to keep dividends unchanged.
-  /// @param _from address The address which you want to send tokens from
-  /// @param _to address The address which you want to transfer to
-  /// @param _value uint256 the amount of tokens to be transferred
-  function _transfer(address _from, address _to, uint256 _value) internal {
-    int256 _magCorrection = magnifiedDividendPerShare.mul(_value).toInt256Safe();
-    magnifiedDividendCorrections[_from] = magnifiedDividendCorrections[_from].add(_magCorrection);
-    magnifiedDividendCorrections[_to] = magnifiedDividendCorrections[_to].sub(_magCorrection);
+  /// @param account The account that will receive the created tokens.
+  /// @param value The amount that will be created.
+  function _mint(address account, uint256 value) internal {
+    super._mint(account, value);
 
-    super._transfer(_from, _to, _value);
+    magnifiedDividendCorrections[account] = magnifiedDividendCorrections[account]
+      .sub( (magnifiedDividendPerShare.mul(value)).toInt256Safe() );
+  }
+
+  /// @dev Internal function that burns an amount of the token of a given account.
+  /// Update magnifiedDividendCorrections to keep dividends unchanged.
+  /// @param account The account whose tokens will be burnt.
+  /// @param value The amount that will be burnt.
+  function _burn(address account, uint256 value) internal {
+    super._burn(account, value);
+
+    magnifiedDividendCorrections[account] = magnifiedDividendCorrections[account]
+      .add( (magnifiedDividendPerShare.mul(value)).toInt256Safe() );
   }
 }
