@@ -45,17 +45,17 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, Div
 
   /// @notice Pay and distribute ether to token holders as dividends.
   /// @dev It reverts if the total supply of tokens is 0.
-  ///   It emits the `DividendsDistributed` event if the amount of received ether is not 0.
-  ///   About undistributed ether:
-  ///     In each distribution, there is a small amount of ether not distributed,
-  ///       the magnified amount of which is
-  ///       `msg.value * magnitude - (msg.value * magnitude / totalSupply()) * totalSupply()`.
-  ///     With a well-chosen `magnitude`, the amount of undistributed ether
-  ///       (de-magnified) in a distribution can be less than 1 wei.
-  ///     We can actually keep track of the undistributed ether in a distribution
-  ///       and try to distribute it in the next distribution,
-  ///       but keeping track of some data on-chain costs much more than
-  ///       the saved ether, so we don't do that.
+  /// It emits the `DividendsDistributed` event if the amount of received ether is not 0.
+  /// About undistributed ether:
+  ///   In each distribution, there is a small amount of ether not distributed,
+  ///     the magnified amount of which is
+  ///     `msg.value * magnitude - (msg.value * magnitude / totalSupply()) * totalSupply()`.
+  ///   With a well-chosen `magnitude`, the amount of undistributed ether
+  ///     (de-magnified) in a distribution can be less than 1 wei.
+  ///   We can actually keep track of the undistributed ether in a distribution
+  ///     and try to distribute it in the next distribution,
+  ///     but keeping track of some data on-chain costs much more than
+  ///     the saved ether, so we don't do that.
   function payAndDistributeDividends() public payable {
     require(totalSupply() > 0);
 
