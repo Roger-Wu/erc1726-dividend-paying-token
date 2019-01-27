@@ -54,16 +54,17 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface {
   ///   in the next distribution, but doing this costs more than saved,
   ///   so we don't do that.
   function payAndDistributeDividends() public payable {
-    require(msg.value > 0);
     require(totalSupply() > 0);
 
-    magnifiedDividendPerShare = magnifiedDividendPerShare.add(
-      (msg.value).mul(magnitude) / totalSupply()
-    );
-    emit DividendsDistributed(msg.sender, msg.value);
+    if (msg.value > 0) {
+      magnifiedDividendPerShare = magnifiedDividendPerShare.add(
+        (msg.value).mul(magnitude) / totalSupply()
+      );
+      emit DividendsDistributed(msg.sender, msg.value);
+    }
   }
 
-  /// @dev Withdraw the dividends of a token holder.
+  /// @dev Withdraw the dividend of msg.sender.
   function withdrawDividend() public {
     uint256 _withdrawableDividend = withdrawableDividendOf(msg.sender);
     if (_withdrawableDividend > 0) {
