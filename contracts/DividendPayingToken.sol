@@ -30,8 +30,8 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, Div
   // To keep the `dividendOf(_user)` unchanged, we add a correction term:
   //   `dividendOf(_user) = dividendPerShare * balanceOf(_user) + dividendCorrectionOf(_user)`,
   //   where `dividendCorrectionOf(_user)` is updated whenever `balanceOf(_user)` is changed:
-  //   `dividendCorrectionOf(_user) = dividendPerShare * (old balanceOf(_user)) - (new balanceOf(_user))`,
-  //   so now even balanceOf(_user) is changed, dividendOf(_user) remains the same.
+  //   `dividendCorrectionOf(_user) = dividendPerShare * (old balanceOf(_user)) - (new balanceOf(_user))`.
+  // So now `dividendOf(_user)` returns the same value before and after `balanceOf(_user)` is changed.
   mapping(address => int256) internal magnifiedDividendCorrections;
   mapping(address => uint256) internal withdrawnDividends;
 
