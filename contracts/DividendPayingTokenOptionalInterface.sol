@@ -3,7 +3,7 @@ pragma solidity ^0.5.0;
 
 /// @title Dividend-Paying Token Optional Interface
 /// @author Roger Wu (https://github.com/roger-wu)
-/// @dev An OPTIONAL interface for a dividend-paying token contract.
+/// @dev OPTIONAL functions for a dividend-paying token contract.
 interface DividendPayingTokenOptionalInterface {
   /// @notice View the amount of dividend in wei that an address can withdraw.
   /// @param _owner The address of a token holder.
