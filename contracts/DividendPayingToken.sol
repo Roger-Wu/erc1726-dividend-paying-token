@@ -17,7 +17,9 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, Div
   using SafeMathInt for int256;
 
   // With `magnitude`, we can properly distribute dividends even if the amount of received ether is small.
-  uint256 constant internal magnitude = 2**64;
+  // For more discussion about choosing the value of `magnitude`,
+  //  see https://github.com/ethereum/EIPs/issues/1726#issuecomment-472352728
+  uint256 constant internal magnitude = 2**128;
 
   uint256 internal magnifiedDividendPerShare;
 
