@@ -3,36 +3,35 @@ pragma solidity ^0.5.0;
 
 /// @title Dividend-Paying Token Interface
 /// @author Roger Wu (https://github.com/roger-wu)
-/// @dev The interface of a dividend-paying token contract.
-///   1. Anyone can pay and distribute ether to all token holders.
-///   2. A token holder can then view or withdraw the ether distributed to them from the contract.
+/// @dev An interface for a dividend-paying token contract.
 interface DividendPayingTokenInterface {
-  /// @notice Pay and distribute ether to token holders as dividends.
-  /// @dev It reverts when the total supply of tokens is 0.
-  /// It emits the `DividendsDistributed` event if the amount of received ether is not 0.
-  function payAndDistributeDividends() external payable;
-
-  /// @notice Withdraw the ether distributed to the sender.
-  /// @dev It emits the `DividendWithdrawn` event if the amount of withdrawn ether is not 0.
-  function withdrawDividend() external;
-
-  /// @notice View the amount of dividend in wei that a token holder can withdraw.
+  /// @notice View the amount of dividend in wei that an address can withdraw.
   /// @param _owner The address of a token holder.
-  /// @return The amount of dividend in wei that the token holder can withdraw.
+  /// @return The amount of dividend in wei that `_owner` can withdraw.
   function dividendOf(address _owner) external view returns(uint256);
 
-  /// @dev This emits when anyone sends ether to this contract via
-  /// payAndDistributeDividends or fallback function.
+  /// @notice Distributes ether to token holders as dividends.
+  /// @dev SHOULD distribute the paid ether to token holders as dividends.
+  ///  SHOULD NOT directly transfer ether to token holders in this function.
+  ///  MUST emit a `DividendsDistributed` event when the amount of distributed ether is greater than 0.
+  function distributeDividends() external payable;
+
+  /// @notice Withdraws the ether distributed to the sender.
+  /// @dev SHOULD transfer `dividendOf(msg.sender)` wei to `msg.sender`, and `dividendOf(msg.sender)` SHOULD be 0 after the transfer.
+  ///  MUST emit a `DividendWithdrawn` event if the amount of ether transferred is greater than 0.
+  function withdrawDividend() external;
+
+  /// @dev This event MUST emit when ether is distributed to token holders.
   /// @param from The address which sends ether to this contract.
-  /// @param weiAmount The amount of wei sent to this contract.
+  /// @param weiAmount The amount of distributed ether in wei.
   event DividendsDistributed(
     address indexed from,
     uint256 weiAmount
   );
 
-  /// @dev This emits when a token holder withdraws their dividend.
+  /// @dev This event MUST emit when an address withdraws their dividend.
   /// @param to The address which withdraws ether from this contract.
-  /// @param weiAmount The amount of wei withdrawn to the token holder.
+  /// @param weiAmount The amount of withdrawn ether in wei.
   event DividendWithdrawn(
     address indexed to,
     uint256 weiAmount

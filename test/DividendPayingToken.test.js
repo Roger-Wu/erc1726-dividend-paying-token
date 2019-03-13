@@ -43,12 +43,12 @@ contract('DividendPayingToken', function (accounts) {
     });
   });
 
-  describe('payAndDistributeDividends', function () {
+  describe('distributeDividends', function () {
     describe('when anyone tries to pay and distribute dividends', function () {
       describe('when the total supply is 0', function () {
         it('reverts', async function () {
           await shouldFail.reverting(
-            this.token.payAndDistributeDividends({from: anyone, value: ether('1')})
+            this.token.distributeDividends({from: anyone, value: ether('1')})
           );
         });
       });
@@ -57,7 +57,7 @@ contract('DividendPayingToken', function (accounts) {
         it('should succeed but nothing happens', async function () {
           await this.token.mint(tokenHolder1, ether('1'), {from: owner});
 
-          await this.token.payAndDistributeDividends({from: anyone, value: ether('0')});
+          await this.token.distributeDividends({from: anyone, value: ether('0')});
 
           (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0'));
           (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0'));
@@ -70,7 +70,7 @@ contract('DividendPayingToken', function (accounts) {
           await this.token.mint(tokenHolder1, ether('1'), {from: owner});
           await this.token.mint(tokenHolder2, ether('3'), {from: owner});
 
-          const { logs } = await this.token.payAndDistributeDividends({from: anyone, value: ether('1')});
+          const { logs } = await this.token.distributeDividends({from: anyone, value: ether('1')});
           await expectEvent.inLogs(logs, 'DividendsDistributed', {
               from: anyone,
               weiAmount: ether('1'),
@@ -275,7 +275,7 @@ contract('DividendPayingToken', function (accounts) {
     it('should be able to withdraw dividend', async function () {
       await this.token.mint(tokenHolder1, ether('1'), {from: owner});
       await this.token.mint(tokenHolder2, ether('3'), {from: owner});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('1')});
+      await this.token.distributeDividends({from: anyone, value: ether('1')});
 
       (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0.25'));
       (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0.25'));
@@ -313,7 +313,7 @@ contract('DividendPayingToken', function (accounts) {
     it('should keep dividends unchanged after minting tokens', async function () {
       await this.token.mint(tokenHolder1, ether('1'), {from: owner});
       await this.token.mint(tokenHolder2, ether('3'), {from: owner});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('1')});
+      await this.token.distributeDividends({from: anyone, value: ether('1')});
 
       await this.token.mint(tokenHolder1, ether('1'), {from: owner});
 
@@ -325,7 +325,7 @@ contract('DividendPayingToken', function (accounts) {
     it('should keep dividends unchanged after transferring tokens', async function () {
       await this.token.mint(tokenHolder1, ether('1'), {from: owner});
       await this.token.mint(tokenHolder2, ether('3'), {from: owner});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('1')});
+      await this.token.distributeDividends({from: anyone, value: ether('1')});
 
       await this.token.transfer(tokenHolder2, ether('1'), {from: tokenHolder1});
 
@@ -341,7 +341,7 @@ contract('DividendPayingToken', function (accounts) {
     it('should keep dividends unchanged after transferFrom', async function () {
       await this.token.mint(tokenHolder1, ether('1'), {from: owner});
       await this.token.mint(tokenHolder2, ether('3'), {from: owner});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('1')});
+      await this.token.distributeDividends({from: anyone, value: ether('1')});
 
       await this.token.approve(tokenHolder3, ether('1'), {from: tokenHolder1});
       await this.token.transferFrom(tokenHolder1, tokenHolder2, ether('1'), {from: tokenHolder3});
@@ -358,10 +358,10 @@ contract('DividendPayingToken', function (accounts) {
     it('should correctly distribute dividends after transferring tokens', async function () {
       await this.token.mint(tokenHolder1, ether('2'), {from: owner});
       await this.token.mint(tokenHolder2, ether('3'), {from: owner});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('5')});
+      await this.token.distributeDividends({from: anyone, value: ether('5')});
 
       await this.token.transfer(tokenHolder2, ether('1'), {from: tokenHolder1});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('50')});
+      await this.token.distributeDividends({from: anyone, value: ether('50')});
 
       (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('12'));
       (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('12'));
@@ -380,9 +380,9 @@ contract('DividendPayingToken', function (accounts) {
       let receipt;
       let fee;
 
-      // mint and payAndDistributeDividends
+      // mint and distributeDividends
       await this.token.mint(tokenHolder1, ether('2'), {from: owner});
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('10')});
+      await this.token.distributeDividends({from: anyone, value: ether('10')});
 
       (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));
       (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));
@@ -410,7 +410,7 @@ contract('DividendPayingToken', function (accounts) {
       (await this.token.withdrawnDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));
 
       // deposit
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('10')});
+      await this.token.distributeDividends({from: anyone, value: ether('10')});
       (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));
       (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('0'));
       (await this.token.withdrawnDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));
@@ -423,7 +423,7 @@ contract('DividendPayingToken', function (accounts) {
       (await this.token.balanceOf(tokenHolder1)).should.be.bignumber.equal(ether('3'));
 
       // deposit
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('10')});
+      await this.token.distributeDividends({from: anyone, value: ether('10')});
       (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('16'));
       (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('6'));
       (await this.token.withdrawnDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));
@@ -463,7 +463,7 @@ contract('DividendPayingToken', function (accounts) {
       (await this.token.balanceOf(tokenHolder3)).should.be.bignumber.equal(ether('6'));
 
       // deposit
-      await this.token.payAndDistributeDividends({from: anyone, value: ether('10')});
+      await this.token.distributeDividends({from: anyone, value: ether('10')});
       (await this.token.accumulativeDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('19'));
       (await this.token.withdrawableDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('9'));
       (await this.token.withdrawnDividendOf(tokenHolder1)).should.be.bignumber.equal(ether('10'));

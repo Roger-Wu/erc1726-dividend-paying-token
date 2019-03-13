@@ -8,55 +8,52 @@ import "./math/SafeMathInt.sol";
 
 /// @title Dividend-Paying Token
 /// @author Roger Wu (https://github.com/roger-wu)
-/// @dev A mintable ERC20 token that allows anyone to pay and distribute dividends
-/// to token holders and allows token holders to withdraw their dividend.
-/// Reference: the source code of PoWH3D: https://etherscan.io/address/0xB3775fB83F7D12A36E0475aBdD1FCA35c091efBe#code
+/// @dev A mintable ERC20 token that allows anyone to pay and distribute ether
+///  to token holders as dividends and allows token holders to withdraw their dividends.
+///  Reference: the source code of PoWH3D: https://etherscan.io/address/0xB3775fB83F7D12A36E0475aBdD1FCA35c091efBe#code
 contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, DividendPayingTokenOptionalInterface {
   using SafeMath for uint256;
   using SafeMathUint for uint256;
   using SafeMathInt for int256;
 
-  /// @dev With the existence of `magnitude`, we can properly distribute dividends
-  ///   when the amount of received ether is small.
+  // With `magnitude`, we can properly distribute dividends even if the amount of received ether is small.
   uint256 constant internal magnitude = 2**64;
 
   uint256 internal magnifiedDividendPerShare;
 
-  /// @dev
-  /// Before minting or transferring tokens, the dividend of a _user
-  ///   can be calculated with this formula:
-  ///   `dividendOf(_user) = dps * balanceOf(_user);`.
-  ///   (dps stands for dividendPerShare.)
-  /// After minting or transferring tokens to a _user, the dividend of him
-  ///   should not be changed, but since `balanceOf(_user)` is changed,
-  ///   `dps * balanceOf(_user)` no longer == dividendOf(_user).
-  /// To keep the calculated `dividendOf(_user)` unchanged, we add a correction term:
-  ///   `dividendOf(_user) = dps * balanceOf(_user) + dividendCorrectionOf(_user);`.
-  ///   where
-  ///   `dividendCorrectionOf(_user) = -1 * dps * increasedBalanceOf(_user);`
-  ///   so now even balanceOf(_user) is changed, dividendOf(_user) remains the same.
+  // About dividendCorrection:
+  // If the token balance of a `_user` is never changed, the dividend of `_user` can be computed with:
+  //   `dividendOf(_user) = dividendPerShare * balanceOf(_user)`.
+  // When `balanceOf(_user)` is changed (via minting/burning/transferring tokens),
+  //   `dividendOf(_user)` should not be changed,
+  //   but the computed value of `dividendPerShare * balanceOf(_user)` is changed.
+  // To keep the `dividendOf(_user)` unchanged, we add a correction term:
+  //   `dividendOf(_user) = dividendPerShare * balanceOf(_user) + dividendCorrectionOf(_user)`,
+  //   where `dividendCorrectionOf(_user)` is updated whenever `balanceOf(_user)` is changed:
+  //   `dividendCorrectionOf(_user) = dividendPerShare * (old balanceOf(_user)) - (new balanceOf(_user))`,
+  //   so now even balanceOf(_user) is changed, dividendOf(_user) remains the same.
   mapping(address => int256) internal magnifiedDividendCorrections;
   mapping(address => uint256) internal withdrawnDividends;
 
-  /// @dev Fallback function to allow anyone to pay and distribute dividends.
+  /// @dev Distributes dividends whenever ether is paid to this contract.
   function() external payable {
-    payAndDistributeDividends();
+    distributeDividends();
   }
 
-  /// @notice Pay and distribute ether to token holders as dividends.
+  /// @notice Distributes ether to token holders as dividends.
   /// @dev It reverts if the total supply of tokens is 0.
-  /// It emits the `DividendsDistributed` event if the amount of received ether is not 0.
+  /// It emits the `DividendsDistributed` event if the amount of received ether is greater than 0.
   /// About undistributed ether:
   ///   In each distribution, there is a small amount of ether not distributed,
   ///     the magnified amount of which is
-  ///     `msg.value * magnitude - (msg.value * magnitude / totalSupply()) * totalSupply()`.
+  ///     `(msg.value * magnitude % totalSupply()) * totalSupply()`.
   ///   With a well-chosen `magnitude`, the amount of undistributed ether
   ///     (de-magnified) in a distribution can be less than 1 wei.
   ///   We can actually keep track of the undistributed ether in a distribution
   ///     and try to distribute it in the next distribution,
-  ///     but keeping track of some data on-chain costs much more than
+  ///     but keeping track of such data on-chain costs much more than
   ///     the saved ether, so we don't do that.
-  function payAndDistributeDividends() public payable {
+  function distributeDividends() public payable {
     require(totalSupply() > 0);
 
     if (msg.value > 0) {
@@ -67,8 +64,8 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, Div
     }
   }
 
-  /// @notice Withdraw the ether distributed to the sender.
-  /// @dev It emits the `DividendWithdrawn` event if the amount of withdrawn ether is not 0.
+  /// @notice Withdraws the ether distributed to the sender.
+  /// @dev It emits a `DividendWithdrawn` event if the amount of withdrawn ether is greater than 0.
   function withdrawDividend() public {
     uint256 _withdrawableDividend = withdrawableDividendOf(msg.sender);
     if (_withdrawableDividend > 0) {
@@ -78,34 +75,33 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, Div
     }
   }
 
-  /// @notice View the amount of dividend in wei that a token holder can withdraw.
+  /// @notice View the amount of dividend in wei that an address can withdraw.
   /// @param _owner The address of a token holder.
-  /// @return The amount of dividend in wei that the token holder can withdraw.
-  function dividendOf(address _owner) external view returns(uint256) {
+  /// @return The amount of dividend in wei that `_owner` can withdraw.
+  function dividendOf(address _owner) public view returns(uint256) {
     return withdrawableDividendOf(_owner);
   }
 
-  /// @notice View the amount of dividend in wei that a token holder can withdraw.
+  /// @notice View the amount of dividend in wei that an address can withdraw.
   /// @param _owner The address of a token holder.
-  /// @return The amount of dividend in wei that the token holder can withdraw.
+  /// @return The amount of dividend in wei that `_owner` can withdraw.
   function withdrawableDividendOf(address _owner) public view returns(uint256) {
     return accumulativeDividendOf(_owner).sub(withdrawnDividends[_owner]);
   }
 
-  /// @notice View the amount of dividend in wei that a token holder has withdrawn.
+  /// @notice View the amount of dividend in wei that an address has withdrawn.
   /// @param _owner The address of a token holder.
-  /// @return The amount of dividend in wei that the token holder has withdrawn.
+  /// @return The amount of dividend in wei that `_owner` has withdrawn.
   function withdrawnDividendOf(address _owner) public view returns(uint256) {
     return withdrawnDividends[_owner];
   }
 
-  /// @notice View the total amount of dividend in wei that a token holder has earned.
-  /// = withdrawableDividendOf(_owner) + withdrawnDividendOf(_owner)
-  /// @dev View the accumulative amount of dividend of a token holder.
-  /// Including withdrawn and not yet withdrawn dividend.
+
+  /// @notice View the amount of dividend in wei that an address has earned in total.
+  /// @dev accumulativeDividendOf(_owner) = withdrawableDividendOf(_owner) + withdrawnDividendOf(_owner)
   /// = (magnifiedDividendPerShare * balanceOf(_owner) + magnifiedDividendCorrections[_owner]) / magnitude
   /// @param _owner The address of a token holder.
-  /// @return The accumulative amount of dividend in wei that the token holder has earned.
+  /// @return The amount of dividend in wei that `_owner` has earned in total.
   function accumulativeDividendOf(address _owner) public view returns(uint256) {
     return magnifiedDividendPerShare.mul(balanceOf(_owner)).toInt256Safe()
       .add(magnifiedDividendCorrections[_owner]).toUint256Safe() / magnitude;
