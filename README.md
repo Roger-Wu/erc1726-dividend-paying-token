@@ -1,5 +1,7 @@
 # DividendPayingToken
 
+[![Solidity version](https://img.shields.io/badge/Solidity-0.5.0-blue.svg)](https://solidity.readthedocs.io/en/v0.5.0/index.html)
+
 A mintable dividend-paying ERC20 token contract written in solidity.
 
 ## Proposal
