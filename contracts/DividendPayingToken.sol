@@ -48,7 +48,7 @@ contract DividendPayingToken is ERC20Mintable, DividendPayingTokenInterface, Div
   /// About undistributed ether:
   ///   In each distribution, there is a small amount of ether not distributed,
   ///     the magnified amount of which is
-  ///     `(msg.value * magnitude % totalSupply()) * totalSupply()`.
+  ///     `(msg.value * magnitude) % totalSupply()`.
   ///   With a well-chosen `magnitude`, the amount of undistributed ether
   ///     (de-magnified) in a distribution can be less than 1 wei.
   ///   We can actually keep track of the undistributed ether in a distribution
