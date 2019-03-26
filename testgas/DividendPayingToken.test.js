@@ -18,17 +18,16 @@ contract('DividendPayingToken', function (accounts) {
     // do something before testing gas consumption
     await this.token.mint(tokenHolder1, ether('1'), {from: owner, gasPrice});
     await this.token.mint(tokenHolder2, ether('1'), {from: owner, gasPrice});
-    await this.token.transfer(tokenHolder2, ether('0.1'), {from: tokenHolder1, gasPrice});
-    await this.token.transfer(tokenHolder1, ether('0.2'), {from: tokenHolder2, gasPrice});
     await this.token.distributeDividends({from: anyone, value: ether('1'), gasPrice});
-    await this.token.transfer(tokenHolder2, ether('0.1'), {from: tokenHolder1, gasPrice});
-    await this.token.transfer(tokenHolder1, ether('0.2'), {from: tokenHolder2, gasPrice});
+    await this.token.transfer(tokenHolder2, ether('0.25'), {from: tokenHolder1, gasPrice});
+    await this.token.withdrawDividend({from: tokenHolder1, gasPrice});
+    await this.token.withdrawDividend({from: tokenHolder2, gasPrice});
 
     let balanceDiff;
     balanceDiff = await balance.difference(
       owner,
       async () => {
-        await this.token.mint(tokenHolder1, ether('1'), {from: owner, gasPrice});
+        await this.token.mint(tokenHolder1, ether('2'), {from: owner, gasPrice});
       }
     );
     console.log(`ordinary mint: ${balanceDiff} gas, exec: ${balanceDiff.add(baseGasCost)} gas`);
@@ -36,7 +35,7 @@ contract('DividendPayingToken', function (accounts) {
     balanceDiff = await balance.difference(
       tokenHolder1,
       async () => {
-        await this.token.transfer(tokenHolder2, ether('0.3'), {from: tokenHolder1, gasPrice});
+        await this.token.transfer(tokenHolder2, ether('1'), {from: tokenHolder1, gasPrice});
       }
     );
     console.log(`ordinary transfer: ${balanceDiff} gas, exec: ${balanceDiff.add(baseGasCost)} gas`);
@@ -49,5 +48,14 @@ contract('DividendPayingToken', function (accounts) {
     );
     balanceDiff = balanceDiff.add(ether('1'));
     console.log(`ordinary distributeDividends: ${balanceDiff} gas, exec: ${balanceDiff.add(baseGasCost)} gas`);
+
+    balanceDiff = await balance.difference(
+      tokenHolder1,
+      async () => {
+        await this.token.withdrawDividend({from: tokenHolder1, gasPrice});
+      }
+    );
+    balanceDiff = balanceDiff.sub(ether('0.4375'));
+    console.log(`ordinary withdrawDividend: ${balanceDiff} gas, exec: ${balanceDiff.add(baseGasCost)} gas`);
   });
 });
